@@ -1,19 +1,21 @@
 # Luxe — Premium Digital Products Storefront
 
-Week 1 foundation. Next.js 15 + TypeScript + Tailwind + Drizzle + Clerk + Stripe + R2 + Resend.
+**Status:** Week 1 + Week 2 complete. Storefront browsing experience is live.
 
-## Week 1 Setup Steps
+## Setup (first time)
 
-### 1. Initialize project
+### 1. Initialize Next.js project (if you haven't already)
 
 ```bash
 npx create-next-app@latest luxe-store --typescript --tailwind --app --use-npm --no-src-dir --import-alias "@/*" --eslint
 cd luxe-store
 ```
 
-### 2. Copy Week 1 files into the project
+When prompted, say **No** to Turbopack.
 
-Copy every file from this bundle into the matching path in your new project (overwrite when asked).
+### 2. Replace the project files
+
+Delete everything inside the freshly-created `luxe-store/` directory and copy in every file from this bundle.
 
 ### 3. Install dependencies
 
@@ -27,28 +29,16 @@ npm install
 cp .env.local.example .env.local
 ```
 
-Fill in values from:
-- **Supabase** → Project Settings → Database → Connection string (URI, not pooler for now)
-- **Clerk** → API Keys in dashboard
-- **Stripe** → Developers → API keys (use test keys)
-- **Cloudflare R2** → R2 → Manage API tokens (create one bucket named `luxe-store-products`)
-- **Resend** → API Keys (verify your sending domain later)
+Fill in real values from your accounts (Supabase, Clerk, Stripe, R2, Resend).
 
-### 5. Set up the database
+### 5. Push the schema and seed data
 
 ```bash
-npm run db:generate
 npm run db:push
+npm run db:seed
 ```
 
-This creates all tables in your Supabase database.
-
-To verify:
-```bash
-npm run db:studio
-```
-
-Opens Drizzle Studio in browser to inspect tables.
+`db:seed` inserts 10 dummy products with multiple variants so you can see the listing pages render. **Run this only once** — running again will create duplicates.
 
 ### 6. Run the dev server
 
@@ -56,72 +46,104 @@ Opens Drizzle Studio in browser to inspect tables.
 npm run dev
 ```
 
-Visit `http://localhost:3000`. You should see the premium homepage.
+Visit `http://localhost:3000`.
 
-### 7. Deploy skeleton to Vercel (optional Week 1, recommended)
+## What works in Week 2
 
-```bash
-npm install -g vercel
-vercel
-```
+You can now visit:
+- `/` — Homepage with featured products and live category counts
+- `/products` — All products listing with filter
+- `/products/notion` — Notion templates only
+- `/products/spreadsheet`, `/products/guide`, `/products/prompt`, `/products/saas` — other categories
+- `/sign-in`, `/sign-up` — Branded auth pages
 
-Follow prompts. Add all env vars to Vercel dashboard.
+You'll see 10 seeded products with multiple tiers (Standard/Pro), price ranges, "featured" badges, and hover animations.
 
-## What's in Week 1
+## What's NOT in Week 2 (coming next)
 
-- ✅ Next.js 15 App Router + TypeScript + Tailwind
-- ✅ Premium design system (colors, fonts, components)
-- ✅ Drizzle schema with 9 tables
-- ✅ Supabase connection
-- ✅ Clerk auth (buyer accounts + admin role flag)
-- ✅ Navigation with scroll-aware backdrop blur
-- ✅ Footer with newsletter signup
-- ✅ Homepage with hero, categories, philosophy sections
-- ✅ Fraunces (display serif) + Inter (body) fonts
-- ✅ Premium color tokens (ink + gold palette)
-
-## What's NOT in Week 1 (coming next)
-
-- ❌ Product pages (Week 3)
+- ❌ Individual product detail pages with variant selector (Week 3)
 - ❌ Stripe checkout (Week 4)
 - ❌ Buyer dashboard (Week 5)
+- ❌ File delivery via R2 (Week 5)
 - ❌ Admin panel (Week 6)
 - ❌ Blog (Week 7)
-- ❌ Real product data (Week 7)
+
+Product cards link to `/products/[category]/[slug]` but those pages don't exist yet — clicking will 404. That's expected; Week 3 builds them.
+
+## Build Plan
+
+- ✅ **Week 1:** Project setup, design system, schema, Clerk auth, homepage, nav, footer
+- ✅ **Week 2:** UI primitives, product listing, category pages, sign-in/up, seed data
+- ⬜ **Week 3:** Product detail page with variant selector, image gallery
+- ⬜ **Week 4:** Stripe Checkout, webhook handler, success page
+- ⬜ **Week 5:** R2 storage, signed URLs, buyer dashboard, email delivery
+- ⬜ **Week 6:** Admin panel for product/order/coupon management
+- ⬜ **Week 7:** Blog MDX, real product inventory, copy
+- ⬜ **Week 8:** Polish, SEO, legal pages, launch
 
 ## File Structure
 
 ```
 luxe-store/
 ├── app/
-│   ├── layout.tsx          # Root layout with Clerk + fonts
-│   ├── page.tsx            # Homepage
-│   └── globals.css         # Global styles + design tokens
+│   ├── layout.tsx          # Root with Clerk + fonts
+│   ├── page.tsx            # Homepage (live data)
+│   ├── globals.css         # Design tokens
+│   ├── products/
+│   │   ├── page.tsx        # All products
+│   │   ├── loading.tsx     # Skeleton state
+│   │   └── [category]/
+│   │       └── page.tsx    # Category page
+│   ├── sign-in/[[...sign-in]]/page.tsx
+│   └── sign-up/[[...sign-up]]/page.tsx
 ├── components/
+│   ├── ui/
+│   │   ├── button.tsx      # Variant-driven button
+│   │   ├── badge.tsx
+│   │   ├── input.tsx
+│   │   └── card.tsx
 │   ├── marketing/
 │   │   ├── nav.tsx
-│   │   └── footer.tsx
-│   └── ui/                 # shadcn components (add as needed)
+│   │   ├── footer.tsx
+│   │   └── empty-state.tsx
+│   └── products/
+│       ├── product-card.tsx
+│       └── category-filter.tsx
 ├── lib/
 │   ├── db/
-│   │   ├── schema.ts       # Drizzle tables
-│   │   └── index.ts        # DB client
-│   └── utils.ts            # cn, formatPrice, etc.
-├── content/
-│   └── blog/               # MDX posts (Week 7)
+│   │   ├── schema.ts       # All tables
+│   │   ├── index.ts        # DB client
+│   │   └── queries.ts      # Typed queries
+│   ├── categories.ts       # Category metadata
+│   └── utils.ts
+├── scripts/
+│   └── seed.ts             # Seed dummy data
+├── content/blog/           # MDX (Week 7)
 ├── drizzle/                # Generated migrations
-├── middleware.ts           # Clerk route protection
+├── middleware.ts           # Clerk protection
 ├── drizzle.config.ts
 ├── tailwind.config.ts
 └── package.json
 ```
 
+## Conventions (for Cursor and humans)
+
+- Always use `cn()` from `@/lib/utils` for conditional classes
+- Always use `formatPrice()` for money (DB stores cents as integer)
+- Server components by default; `"use client"` only when needed
+- Reusable UI primitives go in `components/ui/`
+- Feature-specific components go in `components/[feature]/`
+- Database queries belong in `lib/db/queries.ts` — never in component files
+- Server pages should call queries directly, not via API routes (use API routes only for mutations and webhooks)
+
 ## Troubleshooting
 
-**Drizzle push fails:** Check DATABASE_URL uses the direct connection (not pooler) for `db:push`. For runtime, the pooler URL works.
+**Seed says "duplicate key":** You already seeded once. Delete the rows in Supabase or just continue — the data is there.
 
-**Clerk redirect loops:** Make sure `NEXT_PUBLIC_CLERK_SIGN_IN_URL` matches your actual sign-in route.
+**Cannot find module 'tsx':** Run `npm install` again to ensure dev dependencies installed.
 
-**Fonts look wrong:** Clear `.next` cache and restart dev server. Google Fonts sometimes need a fresh fetch.
+**Images not showing:** That's expected — seed data has `thumbnailUrl: null`. Cards show a fallback letter. You'll add real images via the admin panel in Week 6, or upload manually to R2 and update the DB now.
 
-**Tailwind v4 vs v3:** This uses v3. If you initialized with v4, downgrade: `npm i -D tailwindcss@^3.4.0`.
+**Clerk redirect to wrong URL:** Verify `NEXT_PUBLIC_CLERK_SIGN_IN_URL` and `NEXT_PUBLIC_CLERK_SIGN_UP_URL` in `.env.local` match `/sign-in` and `/sign-up`.
+
+**Next.js Image errors with external URLs:** When you add real R2 image URLs, you'll need to whitelist the R2 domain in `next.config.js`. We'll do this in Week 5 when R2 is integrated.
