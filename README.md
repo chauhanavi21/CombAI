@@ -1,6 +1,6 @@
 # Luxe — Premium Digital Products Storefront
 
-**Status:** Week 1 + Week 2 complete. Storefront browsing experience is live.
+**Status:** Week 1 + Week 2 + Week 3 complete. Full browsing and product viewing experience is live. Buy button is a placeholder until Week 4.
 
 ## Setup (first time)
 
@@ -10,8 +10,6 @@
 npx create-next-app@latest luxe-store --typescript --tailwind --app --use-npm --no-src-dir --import-alias "@/*" --eslint
 cd luxe-store
 ```
-
-When prompted, say **No** to Turbopack.
 
 ### 2. Replace the project files
 
@@ -29,16 +27,16 @@ npm install
 cp .env.local.example .env.local
 ```
 
-Fill in real values from your accounts (Supabase, Clerk, Stripe, R2, Resend).
+Fill in real values from your accounts.
 
-### 5. Push the schema and seed data
+### 5. Push schema and seed data
 
 ```bash
 npm run db:push
 npm run db:seed
 ```
 
-`db:seed` inserts 10 dummy products with multiple variants so you can see the listing pages render. **Run this only once** — running again will create duplicates.
+If you already seeded in Week 2, you can skip `db:seed` — the seed data is unchanged.
 
 ### 6. Run the dev server
 
@@ -46,35 +44,44 @@ npm run db:seed
 npm run dev
 ```
 
-Visit `http://localhost:3000`.
-
-## What works in Week 2
+## What works in Week 3
 
 You can now visit:
 - `/` — Homepage with featured products and live category counts
-- `/products` — All products listing with filter
-- `/products/notion` — Notion templates only
-- `/products/spreadsheet`, `/products/guide`, `/products/prompt`, `/products/saas` — other categories
+- `/products` — All products listing
+- `/products/[category]` — Category pages (notion, spreadsheet, guide, prompt, saas)
+- `/products/[category]/[slug]` — **NEW: Individual product detail page**
+  - Image gallery with thumbnail nav
+  - Variant selector (Standard/Pro toggle) that updates price live
+  - "What's included" list per selected variant
+  - Description / Features / FAQ tabs
+  - Related products from same category
+  - Sticky purchase panel on desktop
+  - Breadcrumb navigation
 - `/sign-in`, `/sign-up` — Branded auth pages
+- 404 page for missing products
 
-You'll see 10 seeded products with multiple tiers (Standard/Pro), price ranges, "featured" badges, and hover animations.
+Try clicking any product card from `/products` to see the detail page.
 
-## What's NOT in Week 2 (coming next)
+## What the Buy button does (Week 3)
 
-- ❌ Individual product detail pages with variant selector (Week 3)
-- ❌ Stripe checkout (Week 4)
-- ❌ Buyer dashboard (Week 5)
-- ❌ File delivery via R2 (Week 5)
+For now, clicking "Buy" shows an alert saying Stripe integration arrives in Week 4. The variant selector, price calculation, and UI flow are all real — only the actual checkout request is mocked.
+
+## What's NOT in Week 3 (coming next)
+
+- ❌ Stripe checkout (Week 4) — buy button connects to Stripe
+- ❌ Webhook handler (Week 4) — order confirmation
+- ❌ Buyer dashboard (Week 5) — `/dashboard` shows purchases
+- ❌ R2 file delivery (Week 5) — signed download URLs
+- ❌ Email delivery (Week 5) — purchase confirmations via Resend
 - ❌ Admin panel (Week 6)
 - ❌ Blog (Week 7)
-
-Product cards link to `/products/[category]/[slug]` but those pages don't exist yet — clicking will 404. That's expected; Week 3 builds them.
 
 ## Build Plan
 
 - ✅ **Week 1:** Project setup, design system, schema, Clerk auth, homepage, nav, footer
 - ✅ **Week 2:** UI primitives, product listing, category pages, sign-in/up, seed data
-- ⬜ **Week 3:** Product detail page with variant selector, image gallery
+- ✅ **Week 3:** Product detail page with variant selector, image gallery, related products, tabs
 - ⬜ **Week 4:** Stripe Checkout, webhook handler, success page
 - ⬜ **Week 5:** R2 storage, signed URLs, buyer dashboard, email delivery
 - ⬜ **Week 6:** Admin panel for product/order/coupon management
@@ -86,64 +93,72 @@ Product cards link to `/products/[category]/[slug]` but those pages don't exist 
 ```
 luxe-store/
 ├── app/
-│   ├── layout.tsx          # Root with Clerk + fonts
-│   ├── page.tsx            # Homepage (live data)
-│   ├── globals.css         # Design tokens
+│   ├── layout.tsx
+│   ├── page.tsx
+│   ├── globals.css
+│   ├── not-found.tsx           # NEW: branded 404
 │   ├── products/
-│   │   ├── page.tsx        # All products
-│   │   ├── loading.tsx     # Skeleton state
+│   │   ├── page.tsx
+│   │   ├── loading.tsx
 │   │   └── [category]/
-│   │       └── page.tsx    # Category page
+│   │       ├── page.tsx
+│   │       └── [slug]/
+│   │           ├── page.tsx    # NEW: product detail
+│   │           └── loading.tsx # NEW: detail skeleton
 │   ├── sign-in/[[...sign-in]]/page.tsx
 │   └── sign-up/[[...sign-up]]/page.tsx
 ├── components/
 │   ├── ui/
-│   │   ├── button.tsx      # Variant-driven button
+│   │   ├── button.tsx
 │   │   ├── badge.tsx
 │   │   ├── input.tsx
-│   │   └── card.tsx
+│   │   ├── card.tsx
+│   │   └── tabs.tsx            # NEW: tabs primitive
 │   ├── marketing/
 │   │   ├── nav.tsx
 │   │   ├── footer.tsx
-│   │   └── empty-state.tsx
+│   │   ├── empty-state.tsx
+│   │   └── breadcrumbs.tsx     # NEW
 │   └── products/
 │       ├── product-card.tsx
-│       └── category-filter.tsx
+│       ├── category-filter.tsx
+│       ├── product-gallery.tsx # NEW
+│       └── variant-selector.tsx # NEW: the conversion engine
 ├── lib/
 │   ├── db/
-│   │   ├── schema.ts       # All tables
-│   │   ├── index.ts        # DB client
-│   │   └── queries.ts      # Typed queries
-│   ├── categories.ts       # Category metadata
+│   │   ├── schema.ts
+│   │   ├── index.ts
+│   │   └── queries.ts          # UPDATED: added getRelatedProducts, getAllProductSlugs
+│   ├── categories.ts
 │   └── utils.ts
 ├── scripts/
-│   └── seed.ts             # Seed dummy data
-├── content/blog/           # MDX (Week 7)
-├── drizzle/                # Generated migrations
-├── middleware.ts           # Clerk protection
+│   └── seed.ts
+├── content/blog/
+├── drizzle/
+├── middleware.ts
 ├── drizzle.config.ts
 ├── tailwind.config.ts
 └── package.json
 ```
 
-## Conventions (for Cursor and humans)
+## Conventions
 
 - Always use `cn()` from `@/lib/utils` for conditional classes
 - Always use `formatPrice()` for money (DB stores cents as integer)
-- Server components by default; `"use client"` only when needed
+- Server components by default; `"use client"` only when needed (variant selector, gallery, tabs need it because they're interactive)
 - Reusable UI primitives go in `components/ui/`
 - Feature-specific components go in `components/[feature]/`
-- Database queries belong in `lib/db/queries.ts` — never in component files
-- Server pages should call queries directly, not via API routes (use API routes only for mutations and webhooks)
+- Database queries belong in `lib/db/queries.ts`
+- Server pages call queries directly, not via API routes (use API routes only for mutations and webhooks)
 
 ## Troubleshooting
 
-**Seed says "duplicate key":** You already seeded once. Delete the rows in Supabase or just continue — the data is there.
+**"Module not found: @radix-ui/react-tabs":** Run `npm install` to ensure all deps are installed.
 
-**Cannot find module 'tsx':** Run `npm install` again to ensure dev dependencies installed.
+**Product card link 404s:** Make sure the seed ran. Check the `slug` and `category` fields in your DB match what's in the URL.
 
-**Images not showing:** That's expected — seed data has `thumbnailUrl: null`. Cards show a fallback letter. You'll add real images via the admin panel in Week 6, or upload manually to R2 and update the DB now.
+**Variant price not updating:** This is a client component — make sure `"use client"` is at the top of `variant-selector.tsx`.
 
-**Clerk redirect to wrong URL:** Verify `NEXT_PUBLIC_CLERK_SIGN_IN_URL` and `NEXT_PUBLIC_CLERK_SIGN_UP_URL` in `.env.local` match `/sign-in` and `/sign-up`.
+**Generate static params warning:** This is normal in dev — `generateStaticParams` only runs at build time. ISR with `revalidate = 60` keeps things fresh.
 
-**Next.js Image errors with external URLs:** When you add real R2 image URLs, you'll need to whitelist the R2 domain in `next.config.js`. We'll do this in Week 5 when R2 is integrated.
+**Image errors:** Seed data has `thumbnailUrl: null`, so cards and the gallery show a fallback letter. This is expected. Real images come in Week 6 via the admin panel.
