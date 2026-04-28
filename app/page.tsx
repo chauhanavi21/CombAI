@@ -1,45 +1,21 @@
 import Link from "next/link";
 import { ArrowUpRight, Sparkles } from "lucide-react";
+import { getFeaturedProducts, getCategoryCounts } from "@/lib/db/queries";
+import { CATEGORIES } from "@/lib/categories";
+import { ProductCard } from "@/components/products/product-card";
 
-const categories = [
-  {
-    slug: "notion",
-    label: "Notion Templates",
-    count: "12 templates",
-    description: "Workspaces engineered for clarity.",
-  },
-  {
-    slug: "spreadsheet",
-    label: "Spreadsheets",
-    count: "8 systems",
-    description: "Finance, tracking, forecasting.",
-  },
-  {
-    slug: "guide",
-    label: "Guides",
-    count: "6 playbooks",
-    description: "Frameworks from the field.",
-  },
-  {
-    slug: "prompt",
-    label: "Prompt Packs",
-    count: "15 collections",
-    description: "Proven prompts for daily work.",
-  },
-  {
-    slug: "saas",
-    label: "Tools",
-    count: "4 utilities",
-    description: "Micro-apps for narrow problems.",
-  },
-];
+export const revalidate = 60;
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [featured, counts] = await Promise.all([
+    getFeaturedProducts(3),
+    getCategoryCounts(),
+  ]);
+
   return (
     <>
       {/* Hero */}
       <section className="relative overflow-hidden">
-        {/* Subtle grid background */}
         <div className="absolute inset-0 bg-grid [background-size:64px_64px] opacity-60" />
         <div
           className="absolute inset-0 bg-gradient-to-b from-transparent via-ink-50/80 to-ink-50"
@@ -74,8 +50,9 @@ export default function HomePage() {
               className="mt-8 text-lg lg:text-xl text-ink-600 max-w-2xl leading-relaxed text-balance animate-fade-up"
               style={{ animationDelay: "180ms" }}
             >
-              A considered collection of Notion templates, spreadsheets, guides, and
-              tools — built for operators who measure their work in craft, not output.
+              A considered collection of Notion templates, spreadsheets, guides,
+              and tools — built for operators who measure their work in craft,
+              not output.
             </p>
 
             <div
@@ -91,7 +68,6 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Trust row */}
             <div
               className="mt-16 flex flex-wrap items-center gap-8 text-xs tracking-wider uppercase text-ink-500 animate-fade-up"
               style={{ animationDelay: "420ms" }}
@@ -130,37 +106,40 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-          {categories.map((cat, idx) => (
-            <Link
-              key={cat.slug}
-              href={`/products/${cat.slug}`}
-              className="group card-lux aspect-[4/5] p-8 flex flex-col justify-between"
-            >
-              {/* Decorative number */}
-              <div className="flex items-start justify-between">
-                <span className="font-mono text-xs tracking-widest text-ink-400">
-                  {String(idx + 1).padStart(2, "0")}
-                </span>
-                <ArrowUpRight
-                  size={18}
-                  className="text-ink-400 transition-all duration-500 group-hover:text-ink-900 group-hover:-translate-y-1 group-hover:translate-x-1"
-                />
-              </div>
+          {CATEGORIES.map((cat, idx) => {
+            const count = counts[cat.slug];
+            return (
+              <Link
+                key={cat.slug}
+                href={`/products/${cat.slug}`}
+                className="group card-lux aspect-[4/5] p-8 flex flex-col justify-between"
+              >
+                <div className="flex items-start justify-between">
+                  <span className="font-mono text-xs tracking-widest text-ink-400">
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <ArrowUpRight
+                    size={18}
+                    className="text-ink-400 transition-all duration-500 group-hover:text-ink-900 group-hover:-translate-y-1 group-hover:translate-x-1"
+                  />
+                </div>
 
-              <div>
-                <p className="label-eyebrow mb-2">{cat.count}</p>
-                <h3 className="font-display text-3xl lg:text-4xl text-ink-900 mb-3 tracking-tight">
-                  {cat.label}
-                </h3>
-                <p className="text-sm text-ink-600 leading-relaxed">
-                  {cat.description}
-                </p>
-              </div>
+                <div>
+                  <p className="label-eyebrow mb-2">
+                    {count} {count === 1 ? "item" : "items"}
+                  </p>
+                  <h3 className="font-display text-3xl lg:text-4xl text-ink-900 mb-3 tracking-tight">
+                    {cat.label}
+                  </h3>
+                  <p className="text-sm text-ink-600 leading-relaxed">
+                    {cat.description}
+                  </p>
+                </div>
 
-              {/* Decorative gold line */}
-              <div className="w-0 h-px bg-gold-500 transition-all duration-700 group-hover:w-12" />
-            </Link>
-          ))}
+                <div className="w-0 h-px bg-gold-500 transition-all duration-700 group-hover:w-12" />
+              </Link>
+            );
+          })}
         </div>
       </section>
 
@@ -183,23 +162,39 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Placeholder for featured products — Week 3 will populate */}
-      <section className="container-lux py-20 lg:py-30">
-        <p className="label-eyebrow mb-3">Featured</p>
-        <h2 className="text-display-md font-display text-ink-900 mb-12">
-          Recently released
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="card-lux aspect-[3/4] flex items-center justify-center bg-ink-100"
-            >
-              <span className="text-sm text-ink-400">Product {i}</span>
+      {/* Featured products */}
+      {featured.length > 0 && (
+        <section className="container-lux py-20 lg:py-30">
+          <div className="flex items-end justify-between mb-12 gap-8">
+            <div>
+              <p className="label-eyebrow mb-3">Featured</p>
+              <h2 className="text-display-md font-display text-ink-900">
+                Recently released
+              </h2>
             </div>
-          ))}
-        </div>
-      </section>
+            <Link
+              href="/products"
+              className="hidden sm:inline-flex items-center gap-1 text-sm text-ink-700 hover:text-ink-900 group"
+            >
+              All products
+              <ArrowUpRight
+                size={14}
+                className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+              />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {featured.map((product, idx) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                index={idx}
+                priority={idx < 3}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }
