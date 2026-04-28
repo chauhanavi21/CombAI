@@ -1,6 +1,6 @@
 import { db } from "./index";
 import { products, productVariants } from "./schema";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { eq, and, desc, asc, ne } from "drizzle-orm";
 import type { Product, ProductVariant } from "./schema";
 
 export type ProductCategory =
@@ -75,6 +75,32 @@ export async function getFeaturedProducts(
 }
 
 /**
+ * Get related products in the same category, excluding the current one.
+ */
+export async function getRelatedProducts(
+  category: ProductCategory,
+  excludeProductId: string,
+  limit = 3
+): Promise<ProductWithVariants[]> {
+  const result = await db.query.products.findMany({
+    where: and(
+      eq(products.status, "published"),
+      eq(products.category, category),
+      ne(products.id, excludeProductId)
+    ),
+    with: {
+      variants: {
+        orderBy: [asc(productVariants.sortOrder)],
+      },
+    },
+    orderBy: [desc(products.featured), desc(products.createdAt)],
+    limit,
+  });
+
+  return result;
+}
+
+/**
  * Get count of products per category for nav badges, etc.
  */
 export async function getCategoryCounts(): Promise<Record<ProductCategory, number>> {
@@ -121,4 +147,17 @@ export function getPriceRange(
     min: Math.min(...prices),
     max: Math.max(...prices),
   };
+}
+
+/**
+ * Get all valid product slugs for static generation.
+ */
+export async function getAllProductSlugs(): Promise<
+  Array<{ category: ProductCategory; slug: string }>
+> {
+  const result = await db.query.products.findMany({
+    where: eq(products.status, "published"),
+    columns: { slug: true, category: true },
+  });
+  return result;
 }
