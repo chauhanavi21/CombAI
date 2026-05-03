@@ -1,164 +1,185 @@
 # Luxe — Premium Digital Products Storefront
 
-**Status:** Week 1 + Week 2 + Week 3 complete. Full browsing and product viewing experience is live. Buy button is a placeholder until Week 4.
+**Status:** Week 1–4 complete. **Real Stripe checkout works.** You can collect money.
 
-## Setup (first time)
+## What's new in Week 4
 
-### 1. Initialize Next.js project (if you haven't already)
+- Real Stripe Checkout integration (no more alert popup)
+- Webhook handler creates orders in your DB on successful payment
+- Branded success page with order summary
+- Order queries module for retrieving past purchases
+- Idempotent webhook handling — Stripe can retry without duplicating orders
+- Refund webhook updates order status
+- Middleware updated to exempt `/api/webhooks` and `/api/checkout` from Clerk auth
 
+## ⚠️ Stripe CLI required for local webhook testing
+
+Webhooks are events that Stripe sends to your server when payments succeed.
+In production, Stripe sends them to your live URL. **In local development**,
+Stripe can't reach `localhost:3000` directly, so we use the Stripe CLI to
+forward events from Stripe to your local machine.
+
+**Without this setup, payments will go through but no order will be saved.**
+
+### Install Stripe CLI
+
+**macOS (Homebrew):**
 ```bash
-npx create-next-app@latest luxe-store --typescript --tailwind --app --use-npm --no-src-dir --import-alias "@/*" --eslint
-cd luxe-store
+brew install stripe/stripe-cli/stripe
 ```
 
-### 2. Replace the project files
-
-Delete everything inside the freshly-created `luxe-store/` directory and copy in every file from this bundle.
-
-### 3. Install dependencies
-
+**Windows (Scoop):**
 ```bash
-npm install
+scoop bucket add stripe https://github.com/stripe/scoop-stripe-cli.git
+scoop install stripe
 ```
 
-### 4. Set up environment variables
+**Windows (manual):** Download from https://github.com/stripe/stripe-cli/releases — get the `.zip` for Windows, extract `stripe.exe`, add it to your PATH.
+
+**Linux:** See https://docs.stripe.com/stripe-cli for apt/yum instructions.
+
+### Login to Stripe CLI (one time)
 
 ```bash
-cp .env.local.example .env.local
+stripe login
 ```
 
-Fill in real values from your accounts.
+This opens a browser to authenticate. Confirm in the browser. The CLI now has access to your Stripe account.
 
-### 5. Push schema and seed data
+### Start the webhook listener (every dev session)
+
+In a **second terminal** (keep this running while you work):
 
 ```bash
-npm run db:push
-npm run db:seed
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
 ```
 
-If you already seeded in Week 2, you can skip `db:seed` — the seed data is unchanged.
+You'll see output like:
+```
+> Ready! Your webhook signing secret is whsec_abc123...
+```
 
-### 6. Run the dev server
+**Copy that `whsec_...` secret** and paste it into your `.env.local`:
+
+```
+STRIPE_WEBHOOK_SECRET=whsec_abc123...
+```
+
+**Important:** This secret is unique per machine and changes each time you log into the Stripe CLI from a new place. If webhooks stop working, double-check this secret is current.
+
+### Restart your dev server
+
+After setting `STRIPE_WEBHOOK_SECRET`:
 
 ```bash
 npm run dev
 ```
 
-## What works in Week 3
+## Daily workflow (after setup)
 
-You can now visit:
-- `/` — Homepage with featured products and live category counts
-- `/products` — All products listing
-- `/products/[category]` — Category pages (notion, spreadsheet, guide, prompt, saas)
-- `/products/[category]/[slug]` — **NEW: Individual product detail page**
-  - Image gallery with thumbnail nav
-  - Variant selector (Standard/Pro toggle) that updates price live
-  - "What's included" list per selected variant
-  - Description / Features / FAQ tabs
-  - Related products from same category
-  - Sticky purchase panel on desktop
-  - Breadcrumb navigation
-- `/sign-in`, `/sign-up` — Branded auth pages
-- 404 page for missing products
+You'll need **3 things running** during dev:
 
-Try clicking any product card from `/products` to see the detail page.
+1. **Terminal 1:** `npm run dev` (your app)
+2. **Terminal 2:** `stripe listen --forward-to localhost:3000/api/webhooks/stripe` (webhook forwarder)
+3. **Browser:** http://localhost:3000
 
-## What the Buy button does (Week 3)
+If you only run the dev server, payments work but orders won't appear in your DB.
 
-For now, clicking "Buy" shows an alert saying Stripe integration arrives in Week 4. The variant selector, price calculation, and UI flow are all real — only the actual checkout request is mocked.
+## Test card numbers
 
-## What's NOT in Week 3 (coming next)
+Use these on Stripe Checkout (in test mode):
 
-- ❌ Stripe checkout (Week 4) — buy button connects to Stripe
-- ❌ Webhook handler (Week 4) — order confirmation
-- ❌ Buyer dashboard (Week 5) — `/dashboard` shows purchases
-- ❌ R2 file delivery (Week 5) — signed download URLs
-- ❌ Email delivery (Week 5) — purchase confirmations via Resend
-- ❌ Admin panel (Week 6)
-- ❌ Blog (Week 7)
+- **Success:** `4242 4242 4242 4242`
+- **Requires authentication (3DS):** `4000 0027 6000 3184`
+- **Declined:** `4000 0000 0000 9995`
+- Any future date for expiry, any 3 digits for CVC, any ZIP
 
-## Build Plan
+## Test the full flow
 
-- ✅ **Week 1:** Project setup, design system, schema, Clerk auth, homepage, nav, footer
-- ✅ **Week 2:** UI primitives, product listing, category pages, sign-in/up, seed data
-- ✅ **Week 3:** Product detail page with variant selector, image gallery, related products, tabs
-- ⬜ **Week 4:** Stripe Checkout, webhook handler, success page
-- ⬜ **Week 5:** R2 storage, signed URLs, buyer dashboard, email delivery
-- ⬜ **Week 6:** Admin panel for product/order/coupon management
-- ⬜ **Week 7:** Blog MDX, real product inventory, copy
-- ⬜ **Week 8:** Polish, SEO, legal pages, launch
+1. Visit http://localhost:3000/products/notion/founder-os
+2. Pick Standard or Pro
+3. Click "Buy"
+4. You'll be redirected to Stripe Checkout
+5. Enter `4242 4242 4242 4242`, any future date, any CVC
+6. Click "Pay"
+7. Stripe redirects you back to `/checkout/success?session_id=...`
+8. Check Terminal 2 — you should see `checkout.session.completed` event
+9. Check the success page — should show your order
+10. Run `npm run db:studio` and look at the `orders` table — your order is there
 
-## File Structure
+## What's NOT in Week 4 (coming Week 5)
+
+- ❌ Real downloads — success page shows disabled "Download" buttons
+- ❌ Confirmation emails — webhook logs success but doesn't send email yet
+- ❌ Buyer dashboard at `/dashboard`
+- ❌ R2 signed URL generation
+
+Week 5 wires all of these up.
+
+## File Structure (new in Week 4)
 
 ```
 luxe-store/
 ├── app/
-│   ├── layout.tsx
-│   ├── page.tsx
-│   ├── globals.css
-│   ├── not-found.tsx           # NEW: branded 404
-│   ├── products/
-│   │   ├── page.tsx
-│   │   ├── loading.tsx
-│   │   └── [category]/
-│   │       ├── page.tsx
-│   │       └── [slug]/
-│   │           ├── page.tsx    # NEW: product detail
-│   │           └── loading.tsx # NEW: detail skeleton
-│   ├── sign-in/[[...sign-in]]/page.tsx
-│   └── sign-up/[[...sign-up]]/page.tsx
-├── components/
-│   ├── ui/
-│   │   ├── button.tsx
-│   │   ├── badge.tsx
-│   │   ├── input.tsx
-│   │   ├── card.tsx
-│   │   └── tabs.tsx            # NEW: tabs primitive
-│   ├── marketing/
-│   │   ├── nav.tsx
-│   │   ├── footer.tsx
-│   │   ├── empty-state.tsx
-│   │   └── breadcrumbs.tsx     # NEW
-│   └── products/
-│       ├── product-card.tsx
-│       ├── category-filter.tsx
-│       ├── product-gallery.tsx # NEW
-│       └── variant-selector.tsx # NEW: the conversion engine
+│   ├── api/
+│   │   ├── checkout/route.ts           # NEW: creates Stripe sessions
+│   │   └── webhooks/stripe/route.ts    # NEW: handles Stripe events
+│   └── checkout/
+│       └── success/
+│           ├── page.tsx                # NEW: post-purchase confirmation
+│           └── loading.tsx             # NEW
 ├── lib/
-│   ├── db/
-│   │   ├── schema.ts
-│   │   ├── index.ts
-│   │   └── queries.ts          # UPDATED: added getRelatedProducts, getAllProductSlugs
-│   ├── categories.ts
-│   └── utils.ts
-├── scripts/
-│   └── seed.ts
-├── content/blog/
-├── drizzle/
-├── middleware.ts
-├── drizzle.config.ts
-├── tailwind.config.ts
-└── package.json
+│   ├── stripe.ts                       # NEW: Stripe client
+│   └── db/
+│       ├── queries.ts                  # (unchanged from W3)
+│       └── queries-orders.ts           # NEW: order queries
+├── components/products/
+│   └── variant-selector.tsx            # UPDATED: real checkout
+├── middleware.ts                       # UPDATED: webhook bypass
+└── ...
 ```
+
+## Build Plan
+
+- ✅ **Week 1:** Foundation, design system, schema, auth
+- ✅ **Week 2:** UI primitives, listing pages
+- ✅ **Week 3:** Product detail page with variants
+- ✅ **Week 4:** Stripe checkout, webhooks, success page
+- ⬜ **Week 5:** R2 storage, signed URLs, buyer dashboard, email delivery
+- ⬜ **Week 6:** Admin panel
+- ⬜ **Week 7:** Blog, real product inventory
+- ⬜ **Week 8:** Polish, SEO, launch
 
 ## Conventions
 
-- Always use `cn()` from `@/lib/utils` for conditional classes
-- Always use `formatPrice()` for money (DB stores cents as integer)
-- Server components by default; `"use client"` only when needed (variant selector, gallery, tabs need it because they're interactive)
-- Reusable UI primitives go in `components/ui/`
-- Feature-specific components go in `components/[feature]/`
-- Database queries belong in `lib/db/queries.ts`
-- Server pages call queries directly, not via API routes (use API routes only for mutations and webhooks)
+- Webhook handler is **idempotent** — Stripe can retry without creating duplicate orders
+- Webhook handler verifies signatures — never trust unauthenticated requests
+- Order amounts in DB always come from Stripe's `amount_total`, not the request body
+- Metadata on Stripe sessions stores our `productId`, `variantId`, `clerkId` for the webhook to use
+- All money is in cents — never floats
 
 ## Troubleshooting
 
-**"Module not found: @radix-ui/react-tabs":** Run `npm install` to ensure all deps are installed.
+**"No webhook signing secret":** You haven't run `stripe listen` or you didn't paste the `whsec_...` into `.env.local`. Restart dev server after pasting.
 
-**Product card link 404s:** Make sure the seed ran. Check the `slug` and `category` fields in your DB match what's in the URL.
+**Payment succeeds but order isn't in DB:** The Stripe CLI isn't running. Start it in a second terminal: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
 
-**Variant price not updating:** This is a client component — make sure `"use client"` is at the top of `variant-selector.tsx`.
+**"Webhook signature verification failed":** Your `STRIPE_WEBHOOK_SECRET` doesn't match what `stripe listen` printed. Re-copy and restart dev server.
 
-**Generate static params warning:** This is normal in dev — `generateStaticParams` only runs at build time. ISR with `revalidate = 60` keeps things fresh.
+**Success page shows "Processing your order":** The webhook hasn't arrived yet. The page automatically retries after 2 seconds. If it persists, check Terminal 2 — the Stripe CLI should be showing the event.
 
-**Image errors:** Seed data has `thumbnailUrl: null`, so cards and the gallery show a fallback letter. This is expected. Real images come in Week 6 via the admin panel.
+**"This product is not available":** Status is not "published". The seed script publishes everything, so this only happens if you manually changed product status.
+
+**Redirects loop after Stripe checkout:** Your `NEXT_PUBLIC_APP_URL` is wrong or has a trailing slash. Should be exactly `http://localhost:3000` (no slash, no quotes).
+
+**Webhook works but Clerk redirects fail:** Make sure middleware was updated. Check that `/api/checkout` is in `isPublicApiRoute`. We need this because checkout can happen for guest users without sign-in.
+
+## Going to production (preview)
+
+When you launch (Week 8):
+1. Create a production webhook in Stripe Dashboard → Developers → Webhooks → Add endpoint
+2. URL: `https://yourdomain.com/api/webhooks/stripe`
+3. Events: `checkout.session.completed`, `charge.refunded`
+4. Copy the production `whsec_...` and add to Vercel env vars (NOT `.env.local`)
+5. Switch to live keys (`sk_live_`, `pk_live_`) in Vercel only
+6. Test mode keys stay in `.env.local` for local dev — never mix the two
