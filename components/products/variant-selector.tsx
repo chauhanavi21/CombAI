@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Loader2, ShoppingBag } from "lucide-react";
+import { Check, Loader2, ShoppingBag, AlertCircle } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type {
@@ -20,6 +20,7 @@ export function VariantSelector({ product }: VariantSelectorProps) {
     defaultVariant?.id ?? product.variants[0]?.id ?? ""
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const selectedVariant: ProductVariant | undefined = product.variants.find(
     (v) => v.id === selectedVariantId
@@ -37,12 +38,33 @@ export function VariantSelector({ product }: VariantSelectorProps) {
 
   const handleBuyClick = async () => {
     setIsLoading(true);
-    // Stripe integration arrives in Week 4. For now, simulate.
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    alert(
-      `Stripe checkout integration arrives in Week 4.\n\nWould purchase: ${product.title} — ${selectedVariant.name} (${formatPrice(selectedVariant.priceCents)})`
-    );
-    setIsLoading(false);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variantId: selectedVariant.id }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error ?? "Checkout failed");
+      }
+
+      if (!data.url) {
+        throw new Error("No checkout URL returned");
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Something went wrong";
+      setError(message);
+      setIsLoading(false);
+    }
   };
 
   const hasMultipleVariants = product.variants.length > 1;
@@ -60,16 +82,17 @@ export function VariantSelector({ product }: VariantSelectorProps) {
                 <button
                   key={variant.id}
                   onClick={() => setSelectedVariantId(variant.id)}
+                  disabled={isLoading}
                   className={cn(
                     "w-full text-left p-5 rounded-2xl border transition-all duration-300",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
                     isSelected
                       ? "border-ink-900 bg-ink-900/[0.02]"
                       : "border-ink-200 hover:border-ink-400 bg-transparent"
                   )}
                 >
                   <div className="flex items-start gap-4">
-                    {/* Radio indicator */}
                     <div
                       className={cn(
                         "mt-0.5 w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all duration-300",
@@ -142,6 +165,14 @@ export function VariantSelector({ product }: VariantSelectorProps) {
           </div>
         )}
 
+      {/* Error message */}
+      {error && (
+        <div className="flex items-start gap-3 p-4 rounded-2xl border border-red-200 bg-red-50">
+          <AlertCircle size={16} className="mt-0.5 flex-shrink-0 text-red-600" />
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
+
       {/* Buy button */}
       <Button
         onClick={handleBuyClick}
@@ -152,7 +183,7 @@ export function VariantSelector({ product }: VariantSelectorProps) {
         {isLoading ? (
           <>
             <Loader2 size={18} className="animate-spin" />
-            Preparing checkout...
+            Redirecting to checkout...
           </>
         ) : (
           <>
@@ -183,6 +214,11 @@ export function VariantSelector({ product }: VariantSelectorProps) {
           <p className="text-sm text-ink-900 font-medium">30 days</p>
         </div>
       </div>
+
+      {/* Secure checkout note */}
+      <p className="text-center text-xs text-ink-500 tracking-wide">
+        Secure checkout powered by Stripe · Cards never touch our servers
+      </p>
     </div>
   );
 }
