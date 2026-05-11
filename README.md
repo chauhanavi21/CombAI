@@ -1,142 +1,131 @@
-# Luxe — Premium Digital Products Storefront
+## Luxe — Premium Digital Products Storefront
 
-**Status:** Week 1–4 complete. **Real Stripe checkout works.** You can collect money.
+**Status:** Week 1–5 complete. **Full purchase-to-delivery loop works.** Buyers pay, get an email with download links, can re-download anytime from their dashboard.
 
-## What's new in Week 4
+## What's new in Week 5
 
-- Real Stripe Checkout integration (no more alert popup)
-- Webhook handler creates orders in your DB on successful payment
-- Branded success page with order summary
-- Order queries module for retrieving past purchases
-- Idempotent webhook handling — Stripe can retry without duplicating orders
-- Refund webhook updates order status
-- Middleware updated to exempt `/api/webhooks` and `/api/checkout` from Clerk auth
+- ☁️ **Cloudflare R2** integration for file storage
+- 🔐 **Signed URL generation** — 15-minute expiring download links
+- 📧 **Email delivery** via Resend with branded React Email template
+- 📚 **Buyer dashboard** at `/dashboard` showing all purchases
+- 🧾 **Order history** at `/dashboard/orders`
+- 🔄 **Re-download support** — fresh tokens generated on demand
+- 📤 **Upload utility** — `npm run upload:file` to push real product files to R2
 
-## ⚠️ Stripe CLI required for local webhook testing
+## Setup additions (one time)
 
-Webhooks are events that Stripe sends to your server when payments succeed.
-In production, Stripe sends them to your live URL. **In local development**,
-Stripe can't reach `localhost:3000` directly, so we use the Stripe CLI to
-forward events from Stripe to your local machine.
+If you've been working through the previous weeks, you already have R2 and Resend env vars set. The new file is the upload utility, which you'll use to put a real test file in R2.
 
-**Without this setup, payments will go through but no order will be saved.**
+### Test the full flow with a real file
 
-### Install Stripe CLI
+1. Create a test file anywhere on your machine, e.g. a PDF:
+   ```bash
+   echo "This is the Founder OS template." > /tmp/founder-os.pdf
+   ```
 
-**macOS (Homebrew):**
-```bash
-brew install stripe/stripe-cli/stripe
-```
+2. Upload it and link to the seeded "Founder OS" product:
+   ```bash
+   npm run upload:file -- founder-os /tmp/founder-os.pdf
+   ```
 
-**Windows (Scoop):**
-```bash
-scoop bucket add stripe https://github.com/stripe/scoop-stripe-cli.git
-scoop install stripe
-```
+   You'll see:
+   ```
+   📂 Reading /tmp/founder-os.pdf...
+   ℹ️  Using first variant "Standard" of product "Founder OS"
+   ☁️  Uploading to R2 at: products/abc.../standard/1234-founder-os.pdf
+   ✅ Uploaded and linked to variant Standard
+   ```
 
-**Windows (manual):** Download from https://github.com/stripe/stripe-cli/releases — get the `.zip` for Windows, extract `stripe.exe`, add it to your PATH.
+3. Now buy the Standard variant of Founder OS via the storefront. Your email
+   will arrive with a real working download link.
 
-**Linux:** See https://docs.stripe.com/stripe-cli for apt/yum instructions.
-
-### Login to Stripe CLI (one time)
-
-```bash
-stripe login
-```
-
-This opens a browser to authenticate. Confirm in the browser. The CLI now has access to your Stripe account.
-
-### Start the webhook listener (every dev session)
-
-In a **second terminal** (keep this running while you work):
+## Daily dev workflow (no change from Week 4)
 
 ```bash
+# Terminal 1
+npm run dev
+
+# Terminal 2 (for Stripe webhooks)
 stripe listen --forward-to localhost:3000/api/webhooks/stripe
 ```
 
-You'll see output like:
-```
-> Ready! Your webhook signing secret is whsec_abc123...
-```
-
-**Copy that `whsec_...` secret** and paste it into your `.env.local`:
-
-```
-STRIPE_WEBHOOK_SECRET=whsec_abc123...
-```
-
-**Important:** This secret is unique per machine and changes each time you log into the Stripe CLI from a new place. If webhooks stop working, double-check this secret is current.
-
-### Restart your dev server
-
-After setting `STRIPE_WEBHOOK_SECRET`:
-
-```bash
-npm run dev
-```
-
-## Daily workflow (after setup)
-
-You'll need **3 things running** during dev:
-
-1. **Terminal 1:** `npm run dev` (your app)
-2. **Terminal 2:** `stripe listen --forward-to localhost:3000/api/webhooks/stripe` (webhook forwarder)
-3. **Browser:** http://localhost:3000
-
-If you only run the dev server, payments work but orders won't appear in your DB.
-
-## Test card numbers
-
-Use these on Stripe Checkout (in test mode):
-
-- **Success:** `4242 4242 4242 4242`
-- **Requires authentication (3DS):** `4000 0027 6000 3184`
-- **Declined:** `4000 0000 0000 9995`
-- Any future date for expiry, any 3 digits for CVC, any ZIP
-
-## Test the full flow
+## Test the complete fulfillment flow
 
 1. Visit http://localhost:3000/products/notion/founder-os
-2. Pick Standard or Pro
-3. Click "Buy"
-4. You'll be redirected to Stripe Checkout
-5. Enter `4242 4242 4242 4242`, any future date, any CVC
-6. Click "Pay"
-7. Stripe redirects you back to `/checkout/success?session_id=...`
-8. Check Terminal 2 — you should see `checkout.session.completed` event
-9. Check the success page — should show your order
-10. Run `npm run db:studio` and look at the `orders` table — your order is there
+2. Pick a variant → click Buy → use card `4242 4242 4242 4242`
+3. Stripe redirects to `/checkout/success?session_id=...`
+4. **Watch Terminal 2** — you'll see `checkout.session.completed`
+5. **Watch Terminal 1 (the app)** — you'll see:
+   - Order created log
+   - "📧 Purchase confirmation sent to..."
+6. **Check your email** — you should receive the branded email with download buttons
+7. Click a download button in the email → file downloads
+8. Visit `/dashboard` — your purchase appears with a Download button
+9. Click Download in the dashboard → fresh signed URL opens, file downloads
+10. Run `npm run db:studio` → check `downloads` table — you'll see the tokens with `lastDownloadedAt` timestamps
 
-## What's NOT in Week 4 (coming Week 5)
+## What's NOT in Week 5 (coming Week 6)
 
-- ❌ Real downloads — success page shows disabled "Download" buttons
-- ❌ Confirmation emails — webhook logs success but doesn't send email yet
-- ❌ Buyer dashboard at `/dashboard`
-- ❌ R2 signed URL generation
+- ❌ Admin panel — you can't yet edit products from the UI (use `db:studio` for now)
+- ❌ Product image upload from admin (use the upload utility for now)
+- ❌ Coupon management UI
 
-Week 5 wires all of these up.
-
-## File Structure (new in Week 4)
+## File Structure (new in Week 5)
 
 ```
 luxe-store/
 ├── app/
 │   ├── api/
-│   │   ├── checkout/route.ts           # NEW: creates Stripe sessions
-│   │   └── webhooks/stripe/route.ts    # NEW: handles Stripe events
-│   └── checkout/
-│       └── success/
-│           ├── page.tsx                # NEW: post-purchase confirmation
-│           └── loading.tsx             # NEW
+│   │   ├── checkout/route.ts                    # (W4)
+│   │   ├── webhooks/stripe/route.ts             # UPDATED: now sends emails + creates tokens
+│   │   ├── download/[token]/route.ts            # NEW: serves signed URLs
+│   │   └── dashboard/refresh-download/route.ts  # NEW: regenerate token from dashboard
+│   ├── checkout/success/page.tsx                # UPDATED: real download buttons
+│   └── dashboard/
+│       ├── page.tsx                             # NEW: library
+│       └── orders/
+│           └── page.tsx                         # NEW: order history
+├── components/
+│   └── dashboard/
+│       └── download-button.tsx                  # NEW: client-side download button
 ├── lib/
-│   ├── stripe.ts                       # NEW: Stripe client
-│   └── db/
-│       ├── queries.ts                  # (unchanged from W3)
-│       └── queries-orders.ts           # NEW: order queries
-├── components/products/
-│   └── variant-selector.tsx            # UPDATED: real checkout
-├── middleware.ts                       # UPDATED: webhook bypass
-└── ...
+│   ├── r2.ts                                    # NEW: R2 client + signed URLs
+│   ├── db/
+│   │   ├── queries-downloads.ts                 # NEW: token management
+│   │   └── ...
+│   └── email/
+│       ├── client.ts                            # NEW: Resend client
+│       ├── send.ts                              # NEW: high-level send fn
+│       └── templates/
+│           └── purchase-confirmation.tsx        # NEW: React Email template
+└── scripts/
+    └── upload-product-file.ts                   # NEW: upload utility
+```
+
+## How the delivery flow works (mental model)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Buyer flow                                                      │
+└──────────────────────────────────────────────────────────────────┘
+
+1. Buyer pays via Stripe Checkout
+2. Stripe sends `checkout.session.completed` webhook to /api/webhooks/stripe
+3. Webhook handler:
+   a. Creates order in DB (transactional)
+   b. Generates download tokens (90-day expiry) in `downloads` table
+   c. Builds download URLs: /api/download/{token}
+   d. Sends email via Resend with these URLs
+4. Buyer clicks download link in email
+5. /api/download/[token]:
+   a. Looks up token in DB
+   b. Checks expiry
+   c. Generates fresh 15-min signed R2 URL
+   d. Redirects browser to signed URL
+   e. Browser downloads the file from R2 directly
+6. Buyer can also visit /dashboard, click Download
+   → /api/dashboard/refresh-download generates a fresh token
+   → same /api/download/[token] flow
 ```
 
 ## Build Plan
@@ -145,41 +134,41 @@ luxe-store/
 - ✅ **Week 2:** UI primitives, listing pages
 - ✅ **Week 3:** Product detail page with variants
 - ✅ **Week 4:** Stripe checkout, webhooks, success page
-- ⬜ **Week 5:** R2 storage, signed URLs, buyer dashboard, email delivery
-- ⬜ **Week 6:** Admin panel
+- ✅ **Week 5:** R2 storage, signed URLs, dashboard, email delivery
+- ⬜ **Week 6:** Admin panel for products, orders, coupons
 - ⬜ **Week 7:** Blog, real product inventory
 - ⬜ **Week 8:** Polish, SEO, launch
 
 ## Conventions
 
-- Webhook handler is **idempotent** — Stripe can retry without creating duplicate orders
-- Webhook handler verifies signatures — never trust unauthenticated requests
-- Order amounts in DB always come from Stripe's `amount_total`, not the request body
-- Metadata on Stripe sessions stores our `productId`, `variantId`, `clerkId` for the webhook to use
-- All money is in cents — never floats
+- All download URLs go through `/api/download/{token}` — never expose R2 URLs directly
+- Tokens expire (90 days from email, 30 days when generated from dashboard)
+- Signed R2 URLs expire in 15 minutes (preventing link sharing)
+- Email failures don't break the webhook — buyer can re-download from dashboard
+- File keys in R2 follow pattern: `products/{productId}/{variantSlug}/{timestamp}-{filename}`
 
 ## Troubleshooting
 
-**"No webhook signing secret":** You haven't run `stripe listen` or you didn't paste the `whsec_...` into `.env.local`. Restart dev server after pasting.
+**Email not arriving:** Check Resend dashboard → Logs. If sender is `onboarding@resend.dev`, emails to your own Resend account always work but emails to other addresses may be filtered. Verify a domain in Resend for production.
 
-**Payment succeeds but order isn't in DB:** The Stripe CLI isn't running. Start it in a second terminal: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
+**Download returns "File not yet available":** The variant's `file_url` is null. Run the upload utility:
+```bash
+npm run upload:file -- <product-slug> <local-file>
+```
 
-**"Webhook signature verification failed":** Your `STRIPE_WEBHOOK_SECRET` doesn't match what `stripe listen` printed. Re-copy and restart dev server.
+**Download returns "Download link has expired":** Token is past its expiry. Sign in to dashboard and click Download — generates a fresh token.
 
-**Success page shows "Processing your order":** The webhook hasn't arrived yet. The page automatically retries after 2 seconds. If it persists, check Terminal 2 — the Stripe CLI should be showing the event.
+**R2 access denied:** Verify token has `Object Read & Write` permission scoped to your bucket. If you used "Read only", recreate the token.
 
-**"This product is not available":** Status is not "published". The seed script publishes everything, so this only happens if you manually changed product status.
+**"R2_BUCKET_NAME is not configured":** Check `.env.local` has all 5 R2 vars: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`. Restart dev server after changes.
 
-**Redirects loop after Stripe checkout:** Your `NEXT_PUBLIC_APP_URL` is wrong or has a trailing slash. Should be exactly `http://localhost:3000` (no slash, no quotes).
+**Webhook order created but no email:** Check Terminal 1 for "Failed to send" log. Most common cause: `RESEND_API_KEY` is not set or invalid.
 
-**Webhook works but Clerk redirects fail:** Make sure middleware was updated. Check that `/api/checkout` is in `isPublicApiRoute`. We need this because checkout can happen for guest users without sign-in.
+**Dashboard shows no purchases but I bought something:** Check `users` table — your Clerk ID should match. If you bought as guest before signing up, the order's `userId` is null. Sign in with the same email and an admin tool would normally re-link them — for now, manually update via `db:studio`.
 
-## Going to production (preview)
+## Going to production preview
 
-When you launch (Week 8):
-1. Create a production webhook in Stripe Dashboard → Developers → Webhooks → Add endpoint
-2. URL: `https://yourdomain.com/api/webhooks/stripe`
-3. Events: `checkout.session.completed`, `charge.refunded`
-4. Copy the production `whsec_...` and add to Vercel env vars (NOT `.env.local`)
-5. Switch to live keys (`sk_live_`, `pk_live_`) in Vercel only
-6. Test mode keys stay in `.env.local` for local dev — never mix the two
+- Verify a domain in Resend before launch — `onboarding@resend.dev` is dev-only
+- Set up production webhook in Stripe Dashboard pointing to your prod URL
+- R2 keys can be the same in dev and prod (the URL is private), or set up a prod bucket
+- Add Sentry or LogTail for download error tracking (Week 8)
