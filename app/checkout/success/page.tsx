@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Check, Download, ArrowUpRight, Mail } from "lucide-react";
+import { Check, ArrowUpRight, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DownloadButton } from "@/components/dashboard/download-button";
 import { getOrderBySessionId } from "@/lib/db/queries-orders";
 import { formatPrice, formatDate } from "@/lib/utils";
 
@@ -9,7 +10,6 @@ interface Props {
   searchParams: Promise<{ session_id?: string }>;
 }
 
-// Success page is dynamic — no caching, always fresh
 export const dynamic = "force-dynamic";
 
 export default async function CheckoutSuccessPage({ searchParams }: Props) {
@@ -19,12 +19,10 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
     notFound();
   }
 
-  // Try to find the order. The webhook may not have processed yet,
-  // so we retry a few times before giving up. (Stripe redirects faster than webhooks.)
   let order = await getOrderBySessionId(session_id);
 
   if (!order) {
-    // Wait briefly and try once more — webhook usually arrives within 1-2 seconds
+    // Webhook sometimes arrives a beat after redirect — give it 2 seconds
     await new Promise((resolve) => setTimeout(resolve, 2000));
     order = await getOrderBySessionId(session_id);
   }
@@ -32,14 +30,12 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
   return (
     <div className="container-lux pt-32 pb-30 lg:pt-40">
       <div className="max-w-2xl mx-auto">
-        {/* Success indicator */}
         <div className="flex justify-center mb-8">
           <div className="w-16 h-16 rounded-full bg-gold-100 flex items-center justify-center animate-fade-in">
             <Check size={28} className="text-gold-700" strokeWidth={2.5} />
           </div>
         </div>
 
-        {/* Header */}
         <div className="text-center mb-12">
           <p className="label-eyebrow mb-4">Order confirmed</p>
           <h1
@@ -54,10 +50,8 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
           </p>
         </div>
 
-        {/* Order details */}
         {order ? (
           <div className="rounded-3xl border border-ink-200 bg-ink-50 overflow-hidden">
-            {/* Header row */}
             <div className="px-8 py-6 border-b border-ink-200 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-widest text-ink-500 mb-1">
@@ -77,8 +71,7 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
               </div>
             </div>
 
-            {/* Line items */}
-            <div className="px-8 py-6 space-y-6">
+            <div className="px-8 py-6 space-y-8">
               {order.items.map((item) => (
                 <div
                   key={item.id}
@@ -88,21 +81,12 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
                     <h3 className="font-display text-xl text-ink-900 tracking-tight mb-1">
                       {item.product.title}
                     </h3>
-                    <p className="text-sm text-ink-600 mb-3">
+                    <p className="text-sm text-ink-600 mb-4">
                       {item.variant.name}
-                      {item.quantity > 1 && ` · Qty ${item.quantity}`}
                     </p>
-
-                    {/* Download button — placeholder until Week 5 */}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled
-                      title="Real downloads activate in Week 5 with R2 file storage"
-                    >
-                      <Download size={14} />
-                      Download
-                    </Button>
+                    <div className="max-w-xs">
+                      <DownloadButton orderItemId={item.id} />
+                    </div>
                   </div>
                   <p className="font-display text-lg text-ink-900 tracking-tight whitespace-nowrap">
                     {formatPrice(item.priceCentsAtPurchase)}
@@ -111,7 +95,6 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
               ))}
             </div>
 
-            {/* Total */}
             <div className="px-8 py-6 border-t border-ink-200 flex items-center justify-between">
               <p className="text-sm text-ink-600">Total paid</p>
               <p className="font-display text-2xl text-ink-900 tracking-tight">
@@ -135,7 +118,6 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
           </div>
         )}
 
-        {/* Next steps */}
         <div className="mt-12 flex flex-wrap gap-3 justify-center">
           <Button asChild>
             <Link href="/dashboard">
@@ -148,7 +130,6 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
           </Button>
         </div>
 
-        {/* Support note */}
         <p className="mt-12 text-center text-sm text-ink-500 leading-relaxed">
           Questions about your order? Reply to your receipt email and we'll get
           back to you within 24 hours.
