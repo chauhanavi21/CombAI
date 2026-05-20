@@ -1,131 +1,128 @@
-## Luxe — Premium Digital Products Storefront
+# Luxe — Premium Digital Products Storefront
 
-**Status:** Week 1–5 complete. **Full purchase-to-delivery loop works.** Buyers pay, get an email with download links, can re-download anytime from their dashboard.
+**Status:** Week 1–6 complete. **Full admin panel works.** You can manage products, orders, coupons, and subscribers through the UI.
 
-## What's new in Week 5
+## What's new in Week 6
 
-- ☁️ **Cloudflare R2** integration for file storage
-- 🔐 **Signed URL generation** — 15-minute expiring download links
-- 📧 **Email delivery** via Resend with branded React Email template
-- 📚 **Buyer dashboard** at `/dashboard` showing all purchases
-- 🧾 **Order history** at `/dashboard/orders`
-- 🔄 **Re-download support** — fresh tokens generated on demand
-- 📤 **Upload utility** — `npm run upload:file` to push real product files to R2
+- 🔐 **Admin panel** at `/admin` — role-gated, secure
+- 📊 **Dashboard** with revenue metrics + recent orders
+- 📦 **Product management** — create, edit, delete (with multi-variant support)
+- 🖼️ **Image uploads** directly from admin to R2 (no more upload script for images)
+- 📁 **File uploads** per variant — set deliverables through the UI
+- 🧾 **Order management** — list, detail view, **Stripe-integrated refunds**
+- 🏷️ **Coupon management** — create, activate/deactivate, delete
+- 📧 **Subscribers list** with CSV export
+- ✉️ **Working newsletter form** in footer (writes to DB)
+- 🛡️ Admin role enforcement via `requireAdmin()` helper
 
-## Setup additions (one time)
+## ⚡ One-time admin setup
 
-If you've been working through the previous weeks, you already have R2 and Resend env vars set. The new file is the upload utility, which you'll use to put a real test file in R2.
-
-### Test the full flow with a real file
-
-1. Create a test file anywhere on your machine, e.g. a PDF:
-   ```bash
-   echo "This is the Founder OS template." > /tmp/founder-os.pdf
-   ```
-
-2. Upload it and link to the seeded "Founder OS" product:
-   ```bash
-   npm run upload:file -- founder-os /tmp/founder-os.pdf
-   ```
-
-   You'll see:
-   ```
-   📂 Reading /tmp/founder-os.pdf...
-   ℹ️  Using first variant "Standard" of product "Founder OS"
-   ☁️  Uploading to R2 at: products/abc.../standard/1234-founder-os.pdf
-   ✅ Uploaded and linked to variant Standard
-   ```
-
-3. Now buy the Standard variant of Founder OS via the storefront. Your email
-   will arrive with a real working download link.
-
-## Daily dev workflow (no change from Week 4)
+After installing Week 6, you need to grant yourself admin access:
 
 ```bash
-# Terminal 1
-npm run dev
-
-# Terminal 2 (for Stripe webhooks)
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
+# 1. Sign up at /sign-up with your email (creates Clerk user)
+# 2. Grant admin via script
+npm run make-admin -- you@example.com
 ```
 
-## Test the complete fulfillment flow
+You should see:
+```
+✅ you@example.com is now an admin
+   Visit /admin to access the dashboard.
+```
 
-1. Visit http://localhost:3000/products/notion/founder-os
-2. Pick a variant → click Buy → use card `4242 4242 4242 4242`
-3. Stripe redirects to `/checkout/success?session_id=...`
-4. **Watch Terminal 2** — you'll see `checkout.session.completed`
-5. **Watch Terminal 1 (the app)** — you'll see:
-   - Order created log
-   - "📧 Purchase confirmation sent to..."
-6. **Check your email** — you should receive the branded email with download buttons
-7. Click a download button in the email → file downloads
-8. Visit `/dashboard` — your purchase appears with a Download button
-9. Click Download in the dashboard → fresh signed URL opens, file downloads
-10. Run `npm run db:studio` → check `downloads` table — you'll see the tokens with `lastDownloadedAt` timestamps
+If you see "User not found" — you need to sign up via the storefront first.
 
-## What's NOT in Week 5 (coming Week 6)
+## Setup steps for Week 6
 
-- ❌ Admin panel — you can't yet edit products from the UI (use `db:studio` for now)
-- ❌ Product image upload from admin (use the upload utility for now)
-- ❌ Coupon management UI
+```bash
+# 1. Drop in the Week 6 bundle (replace files)
+# 2. Install (new dev script reference, no new deps)
+npm install
 
-## File Structure (new in Week 5)
+# 3. No DB schema changes — skip db:push
+# 4. Sign up at localhost:3000/sign-up if you haven't already
+# 5. Make yourself admin (see above)
+# 6. Run dev as usual
+npm run dev
+```
+
+If Stripe webhooks: keep `stripe listen --forward-to localhost:3000/api/webhooks/stripe` running in another terminal.
+
+## What works now
+
+Visit `http://localhost:3000/admin`:
+
+- **`/admin`** — Overview with revenue, recent orders, quick actions
+- **`/admin/products`** — All products (any status)
+- **`/admin/products/new`** — Create a product with images, features, multiple tiers
+- **`/admin/products/[id]`** — Edit existing product; delete or archive
+- **`/admin/orders`** — All orders chronologically
+- **`/admin/orders/[id]`** — Order detail with line items, customer info, refund button
+- **`/admin/coupons`** — Manage promo codes
+- **`/admin/coupons/new`** — Create a coupon
+- **`/admin/subscribers`** — Newsletter list with CSV export
+
+## Test the full admin flow
+
+1. Visit `/admin` — see metrics (likely $0 if you haven't made test purchases)
+2. `/admin/products` — your 10 seeded products appear
+3. Click any product → edit it → change title or price → save
+4. Visit the storefront — changes appear within a few seconds (ISR revalidation)
+5. `/admin/products/new` → create a new test product with:
+   - Upload a thumbnail image (drag/drop)
+   - Add 2 variants
+   - Upload a deliverable file to one variant
+   - Set status to "Published"
+6. Visit `/products/{category}/{slug}` — your new product is live
+7. Buy it as a test (in incognito window) — see order appear in `/admin/orders`
+8. Open the order detail → click "Issue refund" — Stripe issues the refund
+
+## File Structure (new in Week 6)
 
 ```
 luxe-store/
 ├── app/
-│   ├── api/
-│   │   ├── checkout/route.ts                    # (W4)
-│   │   ├── webhooks/stripe/route.ts             # UPDATED: now sends emails + creates tokens
-│   │   ├── download/[token]/route.ts            # NEW: serves signed URLs
-│   │   └── dashboard/refresh-download/route.ts  # NEW: regenerate token from dashboard
-│   ├── checkout/success/page.tsx                # UPDATED: real download buttons
-│   └── dashboard/
-│       ├── page.tsx                             # NEW: library
-│       └── orders/
-│           └── page.tsx                         # NEW: order history
+│   ├── admin/
+│   │   ├── layout.tsx                       # NEW: protected admin layout
+│   │   ├── page.tsx                         # NEW: overview
+│   │   ├── products/
+│   │   │   ├── page.tsx                     # NEW: products list
+│   │   │   ├── new/page.tsx                 # NEW: create
+│   │   │   ├── [id]/page.tsx                # NEW: edit
+│   │   │   └── actions.ts                   # NEW: CRUD server actions
+│   │   ├── orders/
+│   │   │   ├── page.tsx                     # NEW
+│   │   │   ├── [id]/page.tsx                # NEW
+│   │   │   └── actions.ts                   # NEW: refund action
+│   │   ├── coupons/
+│   │   │   ├── page.tsx                     # NEW
+│   │   │   ├── new/page.tsx                 # NEW
+│   │   │   └── actions.ts                   # NEW
+│   │   └── subscribers/page.tsx             # NEW
+│   └── api/
+│       ├── admin/upload/route.ts            # NEW: image/file uploads
+│       └── subscribe/route.ts               # NEW: newsletter
 ├── components/
-│   └── dashboard/
-│       └── download-button.tsx                  # NEW: client-side download button
+│   ├── admin/
+│   │   ├── admin-nav.tsx                    # NEW
+│   │   ├── product-form.tsx                 # NEW: the big one
+│   │   ├── upload-widget.tsx                # NEW
+│   │   ├── delete-product-button.tsx        # NEW
+│   │   ├── refund-button.tsx                # NEW
+│   │   ├── coupon-row-actions.tsx           # NEW
+│   │   └── export-subscribers-button.tsx    # NEW
+│   └── marketing/
+│       ├── footer.tsx                       # UPDATED: uses NewsletterForm
+│       └── newsletter-form.tsx              # NEW
 ├── lib/
-│   ├── r2.ts                                    # NEW: R2 client + signed URLs
-│   ├── db/
-│   │   ├── queries-downloads.ts                 # NEW: token management
-│   │   └── ...
-│   └── email/
-│       ├── client.ts                            # NEW: Resend client
-│       ├── send.ts                              # NEW: high-level send fn
-│       └── templates/
-│           └── purchase-confirmation.tsx        # NEW: React Email template
-└── scripts/
-    └── upload-product-file.ts                   # NEW: upload utility
-```
-
-## How the delivery flow works (mental model)
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Buyer flow                                                      │
-└──────────────────────────────────────────────────────────────────┘
-
-1. Buyer pays via Stripe Checkout
-2. Stripe sends `checkout.session.completed` webhook to /api/webhooks/stripe
-3. Webhook handler:
-   a. Creates order in DB (transactional)
-   b. Generates download tokens (90-day expiry) in `downloads` table
-   c. Builds download URLs: /api/download/{token}
-   d. Sends email via Resend with these URLs
-4. Buyer clicks download link in email
-5. /api/download/[token]:
-   a. Looks up token in DB
-   b. Checks expiry
-   c. Generates fresh 15-min signed R2 URL
-   d. Redirects browser to signed URL
-   e. Browser downloads the file from R2 directly
-6. Buyer can also visit /dashboard, click Download
-   → /api/dashboard/refresh-download generates a fresh token
-   → same /api/download/[token] flow
+│   ├── auth-admin.ts                        # NEW: requireAdmin helper
+│   └── db/
+│       └── queries-admin.ts                 # NEW: admin-only queries
+├── scripts/
+│   └── make-admin.ts                        # NEW
+├── next.config.mjs                          # NEW: R2 image whitelist
+└── ...
 ```
 
 ## Build Plan
@@ -133,42 +130,51 @@ luxe-store/
 - ✅ **Week 1:** Foundation, design system, schema, auth
 - ✅ **Week 2:** UI primitives, listing pages
 - ✅ **Week 3:** Product detail page with variants
-- ✅ **Week 4:** Stripe checkout, webhooks, success page
-- ✅ **Week 5:** R2 storage, signed URLs, dashboard, email delivery
-- ⬜ **Week 6:** Admin panel for products, orders, coupons
-- ⬜ **Week 7:** Blog, real product inventory
-- ⬜ **Week 8:** Polish, SEO, launch
+- ✅ **Week 4:** Stripe checkout, webhooks
+- ✅ **Week 5:** R2 storage, downloads, dashboard, email
+- ✅ **Week 6:** Admin panel with full CRUD
+- ⬜ **Week 7:** Blog, real product inventory, copy polish
+- ⬜ **Week 8:** SEO, legal pages, launch
 
 ## Conventions
 
-- All download URLs go through `/api/download/{token}` — never expose R2 URLs directly
-- Tokens expire (90 days from email, 30 days when generated from dashboard)
-- Signed R2 URLs expire in 15 minutes (preventing link sharing)
-- Email failures don't break the webhook — buyer can re-download from dashboard
-- File keys in R2 follow pattern: `products/{productId}/{variantSlug}/{timestamp}-{filename}`
+- Admin routes are doubly protected: middleware + `requireAdmin()` in layout/actions
+- Server actions handle all admin mutations (no separate API routes for CRUD)
+- File uploads go through `/api/admin/upload` and require admin auth
+- Product slugs auto-generate from title but can be overridden
+- Slugs are URL-safe and globally unique (enforced at DB + action level)
+- Deleting a product fails if orders exist — use "Archived" status instead
 
 ## Troubleshooting
 
-**Email not arriving:** Check Resend dashboard → Logs. If sender is `onboarding@resend.dev`, emails to your own Resend account always work but emails to other addresses may be filtered. Verify a domain in Resend for production.
+**"/admin redirects to home":** You're not an admin. Run `npm run make-admin -- your@email.com` after signing up. Restart browser if needed.
 
-**Download returns "File not yet available":** The variant's `file_url` is null. Run the upload utility:
-```bash
-npm run upload:file -- <product-slug> <local-file>
-```
+**Image upload fails with 401:** You're not signed in or not an admin. Check `/admin` access first.
 
-**Download returns "Download link has expired":** Token is past its expiry. Sign in to dashboard and click Download — generates a fresh token.
+**Image upload fails with R2 error:** R2 keys missing or wrong. Verify all 5 R2 env vars are set. Ensure your R2 API token has **Object Read & Write** permission (not just Read).
 
-**R2 access denied:** Verify token has `Object Read & Write` permission scoped to your bucket. If you used "Read only", recreate the token.
+**Uploaded image doesn't display:** Bucket isn't public. Go to R2 → bucket → Settings → Enable "R2.dev subdomain" public access. Copy the `pub-xxx.r2.dev` URL into `R2_PUBLIC_URL` env var. Restart dev server.
 
-**"R2_BUCKET_NAME is not configured":** Check `.env.local` has all 5 R2 vars: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`. Restart dev server after changes.
+**"Next.js Image: hostname not configured":** Restart dev server after changing `next.config.mjs`. If still failing, hardcode your exact `pub-xxx.r2.dev` hostname in the config.
 
-**Webhook order created but no email:** Check Terminal 1 for "Failed to send" log. Most common cause: `RESEND_API_KEY` is not set or invalid.
+**Save fails with "Slug already in use":** Slugs must be unique globally. Pick a different slug.
 
-**Dashboard shows no purchases but I bought something:** Check `users` table — your Clerk ID should match. If you bought as guest before signing up, the order's `userId` is null. Sign in with the same email and an admin tool would normally re-link them — for now, manually update via `db:studio`.
+**Delete fails with "may have existing orders":** That's intentional — order history must be preserved. Set status to "Archived" instead; archived products don't appear on the storefront but keep order data intact.
+
+**Refund button missing:** Only "paid" orders can be refunded. Already-refunded orders won't show the button.
+
+**Refund fails:** The order may be missing a Stripe payment intent ID, or the charge has already been fully refunded in Stripe. Check Stripe dashboard.
+
+**Newsletter form says success but no DB row:** Check Terminal 1 for errors. Verify `DATABASE_URL` is correct. If DB writes fail elsewhere, fix that first.
+
+## Honest gotchas
+
+- **Coupon enforcement is partial.** This admin creates coupons in our DB, but Stripe Checkout enforces its own promo codes separately. To make discounts actually reduce prices at checkout, create matching codes in Stripe Dashboard → Products → Coupons. The DB tracks usage when buyers enter them on Stripe's side. Full DB-driven discount enforcement would require switching from Stripe Checkout to Stripe Elements (a Week 8+ consideration).
+- **No image cropping yet.** Uploaded images go to R2 at original dimensions. For a polished launch, manually optimize before upload (1200x1500 for thumbnails, max 1MB).
+- **No order search.** Lists are chronological with a 100-order cap. For your scale, this is fine. If you cross 100 orders, we add pagination + search.
 
 ## Going to production preview
 
-- Verify a domain in Resend before launch — `onboarding@resend.dev` is dev-only
-- Set up production webhook in Stripe Dashboard pointing to your prod URL
-- R2 keys can be the same in dev and prod (the URL is private), or set up a prod bucket
-- Add Sentry or LogTail for download error tracking (Week 8)
+- Make sure to set up production webhook URL in Stripe Dashboard before launch
+- The admin's R2 bucket can be the same in dev/prod, or set up a prod-specific bucket
+- Verify a domain in Resend for production emails (no more `onboarding@resend.dev`)
